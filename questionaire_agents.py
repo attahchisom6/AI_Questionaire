@@ -19,16 +19,19 @@ llm_config={
   }
 
 # Define UserProxyAgent for student
-student = UserProxyAgent(
+user_proxy = UserProxyAgent(
     name="student",
     system_message="This will execute and fetch a reasonably answer from the expert to the student",
     human_input_mode="TERMINATE",
-    max_consecutive_auto_reply=10,
-    code_execution_config={
-        "work_dir": "student_manager",
-        "use_docker": False,
-    },
-    map_function={"ask_expert": ["concept_assistant", "group_assistant", "ring_assistant"]}
+    max_consecutive_auto_reply=8,
+    code_execution_config=False,
+)
+
+# we define an expert to execcute code based on what it recieves from rhe other assistants and pass back result to the user
+exper = AssistantAgent(
+    name="expert",
+    system_message="you recieves messages from other assistants, evaluates, execute and pass an understandable message to the student, if the student is not send back the student response to ths appropraite agent for a better answer",
+    code_execution={"last_n_message": 3, "work_dir": "student_feedback"}
 )
 
 # Define AssistantAgents for concept, group, and ring assistance
@@ -50,8 +53,10 @@ ring_assistant = AssistantAgent(
     llm_config=llm_config,
 )
 
-# Define a GroupChat with the agents
-group_chat = GroupChat(agents=[concept_assistant, group_assistant, ring_assistant], message=[], student_manager=None)
+# Define a GroupChat with the agents and a manager to manage the them, then initiate a chat with the manager
 
-# Create a GroupChatManager and pass the group chat to it
+group_chat = GroupChat(agents=[concept_assistant, group_assistant, ring_assistant], message=[], max_round=50)
+
 manager = GroupChatManager(groupchat=group_chat, llm_config=llm_config)
+
+user_proxy.initiate_chat(manager, message="i would love you to answer questions regarding only matters in abstract algebra, example list 5 most popular group, rings orvtgeories in abstract algebra")
